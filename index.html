@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Moolah Manor 🎰</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 { color: #ffcc00; }
+    #reels {
+      display: flex;
+      justify-content: center;
+      font-size: 3rem;
+      margin: 20px 0;
+    }
+    .reel {
+      margin: 0 10px;
+      width: 60px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 10px;
+      border: none;
+      background: #ffcc00;
+      color: #000;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #ffaa00;
+    }
+    #log {
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: #222;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Moolah Manor 🎃</h1>
+  <div>Balance: <span id="balance">100</span> credits</div>
+  <div id="reels"></div>
+  <button onclick="spin()">Spin (Bet 5)</button>
+
+  <div id="log"></div>
+
+<script>
+// -----------------------------
+// Moolah Manor Slot Demo
+// -----------------------------
+
+let balance = 100;
+let bet = 5;
+let freeSpins = 0;
+
+// Symbols
+const symbols = ["J","Q","K","💰","🏰","👻","🧟"];
+
+// Paytable (base game)
+const paytable = {
+  "J": [0,0,2,5,10],
+  "Q": [0,0,2,5,10],
+  "K": [0,0,2,5,10],
+  "💰": [0,0,10,25,50],
+  "🏰": [0,0,10,25,50],
+  "👻": [0,0,10,25,50]
+};
+
+// Spin reels (5 reels)
+function spinReels() {
+  let reels = [];
+  for (let i=0; i<5; i++) {
+    const s = symbols[Math.floor(Math.random()*symbols.length)];
+    reels.push(s);
+  }
+  return reels;
+}
+
+// Check payout (single payline demo)
+function calculatePayout(reels, bet, isFreeSpin=false) {
+  let payout = 0;
+  let first = reels[0];
+  let count = 1;
+
+  for (let i=1; i<reels.length; i++) {
+    if (reels[i] === first && paytable[first]) {
+      count++;
+    } else break;
+  }
+
+  if (paytable[first] && count >= 3) {
+    payout = paytable[first][count-1] * bet;
+  }
+
+  if (isFreeSpin && payout > 0) payout *= 2; // 2x multiplier
+
+  return payout;
+}
+
+// Play one spin
+function playSpin(inFreeSpins=false) {
+  const reels = spinReels();
+  const payout = calculatePayout(reels, bet, inFreeSpins);
+  const monsters = reels.filter(s => s === "🧟").length;
+
+  if (!inFreeSpins) balance -= bet; // deduct bet in base game
+  balance += payout;
+
+  // Update UI
+  document.getElementById("reels").innerHTML = reels.map(r=>`<div class="reel">${r}</div>`).join("");
+  document.getElementById("balance").innerText = balance;
+
+  log(`${inFreeSpins ? "(Free Spin)" : "(Base Spin)"} ${reels.join(" | ")} ➜ Won ${payout}`);
+
+  // Bonus trigger
+  if (monsters >= 3) {
+    freeSpins += 10;
+    log("🎉 Bonus Triggered! +10 Free Spins!");
+  }
+}
+
+// Spin button handler
+function spin() {
+  if (freeSpins > 0) {
+    freeSpins--;
+    playSpin(true);
+  } else {
+    if (balance < bet) {
+      log("Not enough balance!");
+      return;
+    }
+    playSpin(false);
+  }
+}
+
+function log(msg) {
+  const logBox = document.getElementById("log");
+  logBox.innerHTML = msg + "<br>" + logBox.innerHTML;
+}
+</script>
+</body>
+</html>
