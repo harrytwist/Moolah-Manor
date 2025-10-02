@@ -12,16 +12,24 @@
       padding: 20px;
     }
     h1 { color: #ffcc00; }
+    #balance { font-weight: bold; }
     #reels {
       display: flex;
       justify-content: center;
-      font-size: 3rem;
       margin: 20px 0;
     }
     .reel {
-      margin: 0 10px;
-      width: 60px;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      margin: 0 5px;
+      border: 2px solid #444;
+      padding: 5px;
+      background: #222;
+      border-radius: 8px;
+    }
+    .symbol {
+      font-size: 2.5rem;
+      margin: 5px 0;
     }
     button {
       padding: 10px 20px;
@@ -32,9 +40,7 @@
       color: #000;
       cursor: pointer;
     }
-    button:hover {
-      background: #ffaa00;
-    }
+    button:hover { background: #ffaa00; }
     #log {
       margin-top: 20px;
       max-height: 300px;
@@ -51,12 +57,11 @@
   <div>Balance: <span id="balance">100</span> credits</div>
   <div id="reels"></div>
   <button onclick="spin()">Spin (Bet 5)</button>
-
   <div id="log"></div>
 
 <script>
 // -----------------------------
-// Moolah Manor Slot Demo
+// Moolah Manor 5x3 Slot
 // -----------------------------
 
 let balance = 100;
@@ -64,9 +69,9 @@ let bet = 5;
 let freeSpins = 0;
 
 // Symbols
-const symbols = ["J","Q","K","💰","🏰","👻","🧟"];
+const symbols = ["J","Q","K","💰","🏰","👻","🧟"]; // low, mid, bonus
 
-// Paytable (base game)
+// Paytable for base game (3+ in a row, left to right)
 const paytable = {
   "J": [0,0,2,5,10],
   "Q": [0,0,2,5,10],
@@ -76,54 +81,82 @@ const paytable = {
   "👻": [0,0,10,25,50]
 };
 
-// Spin reels (5 reels)
+// Generate a single reel (array of 3 symbols)
+function spinReel() {
+  let reel = [];
+  for (let i=0; i<3; i++) {
+    reel.push(symbols[Math.floor(Math.random()*symbols.length)]);
+  }
+  return reel;
+}
+
+// Spin all reels
 function spinReels() {
   let reels = [];
   for (let i=0; i<5; i++) {
-    const s = symbols[Math.floor(Math.random()*symbols.length)];
-    reels.push(s);
+    reels.push(spinReel());
   }
   return reels;
 }
 
-// Check payout (single payline demo)
-function calculatePayout(reels, bet, isFreeSpin=false) {
-  let payout = 0;
-  let first = reels[0];
+// Display reels
+function renderReels(reels) {
+  const reelsDiv = document.getElementById("reels");
+  reelsDiv.innerHTML = '';
+  for (let col=0; col<5; col++) {
+    const reelDiv = document.createElement("div");
+    reelDiv.className = "reel";
+    reels[col].forEach(symbol=>{
+      const symDiv = document.createElement("div");
+      symDiv.className = "symbol";
+      symDiv.textContent = symbol;
+      reelDiv.appendChild(symDiv);
+    });
+    reelsDiv.appendChild(reelDiv);
+  }
+}
+
+// Calculate payout (middle row only for simplicity)
+function calculatePayout(reels, bet, isFree=false) {
+  let middleRow = reels.map(reel => reel[1]); // middle symbols
+  let first = middleRow[0];
   let count = 1;
-
-  for (let i=1; i<reels.length; i++) {
-    if (reels[i] === first && paytable[first]) {
-      count++;
-    } else break;
+  for (let i=1; i<5; i++) {
+    if (middleRow[i] === first && paytable[first]) count++;
+    else break;
   }
-
-  if (paytable[first] && count >= 3) {
-    payout = paytable[first][count-1] * bet;
-  }
-
-  if (isFreeSpin && payout > 0) payout *= 2; // 2x multiplier
-
+  let payout = (paytable[first] && count >=3) ? paytable[first][count-1] * bet : 0;
+  if (isFree && payout>0) payout *=2; // 2x multiplier in free spins
   return payout;
 }
 
+// Count monsters anywhere
+function countMonsters(reels) {
+  let total = 0;
+  reels.forEach(reel => {
+    reel.forEach(sym => { if (sym==="🧟") total++; });
+  });
+  return total;
+}
+
+// Logging helper
+function log(msg) {
+  const logBox = document.getElementById("log");
+  logBox.innerHTML = msg + "<br>" + logBox.innerHTML;
+}
+
 // Play one spin
-function playSpin(inFreeSpins=false) {
+function playSpin(isFree=false) {
+  if (!isFree) balance -= bet;
   const reels = spinReels();
-  const payout = calculatePayout(reels, bet, inFreeSpins);
-  const monsters = reels.filter(s => s === "🧟").length;
-
-  if (!inFreeSpins) balance -= bet; // deduct bet in base game
+  renderReels(reels);
+  const payout = calculatePayout(reels, bet, isFree);
   balance += payout;
+  const monsters = countMonsters(reels);
 
-  // Update UI
-  document.getElementById("reels").innerHTML = reels.map(r=>`<div class="reel">${r}</div>`).join("");
-  document.getElementById("balance").innerText = balance;
+  log(`${isFree ? "(Free Spin)" : "(Base Spin)"} ${reels.map(r=>r[1]).join(" | ")} ➜ Won ${payout}`);
 
-  log(`${inFreeSpins ? "(Free Spin)" : "(Base Spin)"} ${reels.join(" | ")} ➜ Won ${payout}`);
-
-  // Bonus trigger
-  if (monsters >= 3) {
+  if (monsters>=3) {
     freeSpins += 10;
     log("🎉 Bonus Triggered! +10 Free Spins!");
   }
@@ -131,22 +164,18 @@ function playSpin(inFreeSpins=false) {
 
 // Spin button handler
 function spin() {
-  if (freeSpins > 0) {
+  if (freeSpins>0) {
     freeSpins--;
     playSpin(true);
   } else {
-    if (balance < bet) {
-      log("Not enough balance!");
-      return;
-    }
+    if (balance<bet) { log("Not enough balance!"); return; }
     playSpin(false);
   }
+  document.getElementById("balance").innerText = balance;
 }
 
-function log(msg) {
-  const logBox = document.getElementById("log");
-  logBox.innerHTML = msg + "<br>" + logBox.innerHTML;
-}
+// Initial render
+renderReels([spinReel(), spinReel(), spinReel(), spinReel(), spinReel()]);
 </script>
 </body>
 </html>
